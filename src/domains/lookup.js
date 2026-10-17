@@ -69,8 +69,15 @@ module.exports = (ctx) => {
           };
         }
 
+        // reactions ride on the message, and the sync stream never sends them
+        const reactions = (Array.isArray(msg.message_reactions) ? msg.message_reactions : []).map((r) => ({
+          userID: String((r.user && r.user.id) || r.userID || ''),
+          reaction: String(r.reaction || ''),
+        })).filter((r) => r.userID);
+
         return {
           messageID: String(msg.message_id || messageID),
+          reactions,
           senderID: String((msg.message_sender && msg.message_sender.id) || ''),
           body: String((msg.message && msg.message.text) || ''),
           timestamp: String(msg.timestamp_precise || msg.timestamp || ''),
