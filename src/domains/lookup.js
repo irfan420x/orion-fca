@@ -12,7 +12,33 @@ const MESSAGE_INFO_DOC = '2848441488556444';
 module.exports = (ctx) => {
   const { client } = ctx;
 
+  const UA = require('../transport/http').UA;
+
+  /** Turn a profile link into a uid. Numeric input passes through.
+   *  Only shapes Facebook actually exposes without a token are accepted —
+   *  a vanity handle cannot be resolved reliably, so it is refused rather
+   *  than guessed at. */
+  async function resolveUserID(input) {
+    const raw = String(input || '').trim();
+    if (/^\d{6,}$/.test(raw)) return raw;
+
+    const patterns = [
+      /[?&]id=(\d{6,})/,
+      /\/profile\/(\d{6,})/,
+      /facebook\.com\/(\d{6,})/,
+    ];
+    for (const re of patterns) {
+      const hit = raw.match(re);
+      if (hit) return hit[1];
+    }
+    return null;
+  }
+
   return {
+    resolveUserID(userInput, callback) {
+      return ctx.nodeify(resolveUserID(userInput), callback);
+    },
+
     getMessageInfo(threadID, messageID, callback) {
       return ctx.nodeify((async () => {
         const [obj] = await client.http.batch({

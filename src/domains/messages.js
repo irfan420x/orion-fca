@@ -11,14 +11,27 @@ module.exports = (ctx) => {
     sendMessage(msg, threadID, callback, replyToMessage) {
       const text = typeof msg === 'string' ? msg : (msg && (msg.body || msg.text)) || '';
       const replyTo = replyToMessage || (msg && msg.replyToMessage);
-      // attachment: a path, a Buffer, or { buffer, filename, contentType }
       const attachment = msg && typeof msg === 'object'
         ? (msg.attachment || msg.image || msg.file || null)
         : null;
+      const noAck = Boolean(msg && typeof msg === 'object' && msg.noAck);
+
+      // A fire-and-forget reply must not sit behind another send in a lane:
+      // a stalled ack would delay every message on that thread for minutes.
+      if (noAck) {
+        return ctx.nodeify((async () => {
+          let fbids = null;
+          if (attachment) {
+            const { uploadFile } = require('../transport/upload');
+            fbids = (await uploadFile(client, attachment)).ids;
+          }
+          const rt = await ctx.rt();
+          return rt.sendFast(threadID, text, replyTo, fbids);
+        })(), callback);
+      }
 
       ctx.nodeify(ctx.write({
         name: 'sendMessage',
-        // an attachment-only message is legal; the guard only needs a non-empty text
         args: [text || (attachment ? '[media]' : ''), threadID],
         lane: `thread:${threadID}`,
         key: `send:${threadID}:${String(text).slice(0, 64)}:${replyTo || ''}:${attachment && (attachment.path || attachment.filename) || ''}`,
@@ -26,12 +39,10 @@ module.exports = (ctx) => {
           let fbids = null;
           if (attachment) {
             const { uploadFile } = require('../transport/upload');
-            const uploaded = await uploadFile(client, attachment);
-            fbids = uploaded.ids;
+            fbids = (await uploadFile(client, attachment)).ids;
           }
           const rt = await ctx.rt();
-          // noAck: fire and forget, for replies whose id nobody needs
-          return (msg && msg.noAck) ? rt.sendFast(threadID, text, replyTo, fbids) : rt.send(threadID, text, replyTo, fbids);
+          return rt.send(threadID, text, replyTo, fbids);
         },
       }), callback);
     },
