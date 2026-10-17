@@ -11,15 +11,25 @@ module.exports = (ctx) => {
     sendMessage(msg, threadID, callback, replyToMessage) {
       const text = typeof msg === 'string' ? msg : (msg && (msg.body || msg.text)) || '';
       const replyTo = replyToMessage || (msg && msg.replyToMessage);
+      // attachment: a path, a Buffer, or { buffer, filename, contentType }
+      const attachment = msg && typeof msg === 'object'
+        ? (msg.attachment || msg.image || msg.file || null)
+        : null;
 
       ctx.nodeify(ctx.write({
         name: 'sendMessage',
         args: [text, threadID],
         lane: `thread:${threadID}`,
-        key: `send:${threadID}:${String(text).slice(0, 64)}:${replyTo || ''}`,
+        key: `send:${threadID}:${String(text).slice(0, 64)}:${replyTo || ''}:${attachment && (attachment.path || attachment.filename) || ''}`,
         run: async () => {
+          let fbids = null;
+          if (attachment) {
+            const { uploadFile } = require('../transport/upload');
+            const uploaded = await uploadFile(client, attachment);
+            fbids = uploaded.ids;
+          }
           const rt = await ctx.rt();
-          return rt.send(threadID, text, replyTo);
+          return rt.send(threadID, text, replyTo, fbids);
         },
       }), callback);
     },

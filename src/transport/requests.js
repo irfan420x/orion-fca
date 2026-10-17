@@ -33,6 +33,20 @@ function buildTask({ label, payload, queue, version, requestId, taskId }) {
   };
 }
 
+/** Any string starting with mid. in the ack — media sends report it elsewhere. */
+function findMid(node, depth = 0) {
+  if (!node || depth > 8) return null;
+  if (typeof node === 'string') return node.startsWith('mid.') ? node : null;
+  if (Array.isArray(node)) {
+    for (const item of node) { const hit = findMid(item, depth + 1); if (hit) return hit; }
+    return null;
+  }
+  if (typeof node === 'object') {
+    for (const value of Object.values(node)) { const hit = findMid(value, depth + 1); if (hit) return hit; }
+  }
+  return null;
+}
+
 /** Reads messageID / threadID out of a mutation ack. */
 function extractAck(payload) {
   let messageID = null;
@@ -44,6 +58,7 @@ function extractAck(payload) {
     for (const child of n) walk(child);
   };
   walk((payload || {}).step);
+  if (!messageID) messageID = findMid(payload);
   return { messageID, threadID };
 }
 

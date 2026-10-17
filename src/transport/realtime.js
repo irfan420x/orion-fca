@@ -52,7 +52,7 @@ class Realtime {
     this.onError = null;
     this.seq = 0;
     this._seqSavedAt = 0;
-    this.seqFile = (client.opts && client.opts.seqFile) || null;
+    this.seqFile = (client.options && client.options.seqFile) || (client.opts && client.opts.seqFile) || null;
     this._loadSeq();
   }
 
@@ -159,15 +159,15 @@ class Realtime {
     });
   }
 
-  send(threadID, text, replyTo) {
-    const { requestId, content } = this._sendEnvelope(threadID, text, replyTo);
+  send(threadID, text, replyTo, attachmentFbids) {
+    const { requestId, content } = this._sendEnvelope(threadID, text, replyTo, attachmentFbids);
     return this._awaitAck(requestId, content, (payload) => {
       const ids = extractAck(payload);
       return { messageID: ids.messageID, threadID: ids.threadID || String(threadID) };
     });
   }
 
-  _sendEnvelope(threadID, text, replyTo) {
+  _sendEnvelope(threadID, text, replyTo, attachmentFbids) {
     const { TASK_VERSIONS } = require('../protocol/endpoints');
     const base = {
       thread_id: String(threadID),
@@ -178,6 +178,11 @@ class Realtime {
       metadata_dataclass: JSON.stringify({ media_accessibility_metadata: { alt_text: null } }),
     };
     if (replyTo) base.reply_metadata = { reply_source_id: replyTo, reply_source_type: 1, reply_type: 0 };
+    if (Array.isArray(attachmentFbids) && attachmentFbids.length) {
+      base.send_type = 3;                 // 1 = text only, 3 = media
+      if (!base.text) base.text = null;
+      base.attachment_fbids = attachmentFbids.map(String);
+    }
 
     const requestId = Math.floor(100 + Math.random() * 900);
     const content = {
