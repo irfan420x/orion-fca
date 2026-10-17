@@ -17,7 +17,7 @@ const { Client } = require('./src/core/client');
 const { createContext } = require('./src/core/context');
 const { loadApi } = require('./src/api/loader');
 
-const VERSION = '0.3.0';
+const VERSION = require('./package.json').version;
 
 function login(credentials, options, callback) {
   let cb = callback;

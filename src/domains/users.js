@@ -6,6 +6,7 @@ const { notImplemented } = require('../core/errors');
 
 module.exports = (ctx) => ({
   getUserInfo(ids, callback) {
+    ctx.guard('getUserInfo', [ids]);
     ctx.nodeify(userInfo(ctx.client, ids), callback);
   },
 

@@ -37,13 +37,17 @@ const TOKEN_PATTERNS = {
 };
 
 class Http {
-  constructor(client) { this.c = client; }
+  constructor(client) { this.c = client; this.timeoutMs = client.options && client.options.httpTimeoutMs ? client.options.httpTimeoutMs : 20000; }
 
   headers(extra = {}) { return { ...HEADERS, cookie: this.c.cookie, ...extra }; }
 
   async get(url) {
-    const r = await fetch(url, { headers: this.headers(), redirect: 'follow' });
-    return { status: r.status, url: r.url, text: await r.text() };
+    try {
+      const r = await fetch(url, { headers: this.headers(), redirect: 'follow', signal: AbortSignal.timeout(this.timeoutMs) });
+      return { status: r.status, url: r.url, text: await r.text() };
+    } catch (e) {
+      throw new FcaError(e && e.name === 'TimeoutError' ? 'HTTP_TIMEOUT' : 'HTTP_ERROR', `GET ${url} failed: ${e && e.message ? e.message : e}`);
+    }
   }
 
   /** Bootstrap the per-page Relay tokens. */
@@ -85,8 +89,13 @@ class Http {
         'sec-fetch-dest': 'empty', 'sec-fetch-mode': 'cors', 'sec-fetch-site': 'same-origin',
       }),
       body: form,
-    });
+      signal: AbortSignal.timeout(this.timeoutMs),
+    })
+      .catch((e) => {
+        throw new FcaError(e && e.name === 'TimeoutError' ? 'HTTP_TIMEOUT' : 'HTTP_ERROR', `POST failed: ${e && e.message ? e.message : e}`);
+      });
     const raw = (await r.text()).replace(/^for\s*\(;;\);/, '');
+    if (r.status >= 500) throw new FcaError('HTTP_ERROR', `HTTP ${r.status} from ${url}`);
     return { status: r.status, raw };
   }
 

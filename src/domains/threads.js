@@ -9,7 +9,8 @@ module.exports = (ctx) => {
 
   return {
     getThreadList(limit, timestamp, tags, callback) {
-      if (typeof tags === 'function') callback = tags;
+      if (typeof tags === 'function') { callback = tags; tags = null; }
+      if (typeof timestamp === 'function') { callback = timestamp; timestamp = null; }
       ctx.nodeify(threadList(client, Number(limit) || 20).then((r) => {
         r.threads.forEach((t) => ctx.ledger.putThread(t, 'query'));
         return r.threads;
@@ -17,6 +18,7 @@ module.exports = (ctx) => {
     },
 
     getThreadInfo(threadID, callback) {
+      ctx.guard('getThreadInfo', [threadID]);
       ctx.nodeify(threadInfo(client, threadID).then((info) => {
         ctx.ledger.putThread(info, 'query');
         return info;
@@ -24,6 +26,9 @@ module.exports = (ctx) => {
     },
 
     getThreadHistory(threadID, amount, timestamp, callback) {
+      if (typeof timestamp === 'function') { callback = timestamp; timestamp = null; }
+      if (typeof amount === 'function') { callback = amount; amount = 20; }
+      ctx.guard('getThreadHistory', [threadID]);
       ctx.nodeify(threadHistory(client, threadID, Number(amount) || 20, timestamp || null), callback);
     },
 

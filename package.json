@@ -5,7 +5,8 @@
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "test": "node test/smoke.js"
+    "test": "node test/smoke.js",
+    "audit": "node test/audit.js"
   },
   "dependencies": {
     "mqtt": "^5.16.1",
