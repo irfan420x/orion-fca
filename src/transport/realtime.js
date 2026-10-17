@@ -93,6 +93,17 @@ class Realtime {
     try { msg = JSON.parse(raw.toString()); } catch { return; }
     if (msg.errorCode) { this.emit({ type: 'error', error: String(msg.errorCode) }); return; }
     for (const delta of (msg.deltas || [])) {
+      // raw dump: the only reliable way to learn FB's current reply shape
+      try {
+        if (delta) {
+          const fs = require('fs');
+          const dir = process.env.ORION_DATA_DIR || '/home/irfan/Desktop/orion-v2/data/logs';
+          const file = `${dir}/deltas.jsonl`;
+          try { if (fs.statSync(file).size > 2_000_000) fs.renameSync(file, `${file}.1`); } catch { /* first write */ }
+          fs.appendFileSync(file, `${JSON.stringify(delta).slice(0, 4000)}\n`);
+        }
+      } catch { /* diagnostics must never break delivery */ }
+
       const event = deltaToEvent(delta);
       if (event) this.emit(event);
     }
