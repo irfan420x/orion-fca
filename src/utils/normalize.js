@@ -65,7 +65,29 @@ function deltaToEvent(d) {
     };
   }
 
-  // join / leave / admin changes arrive as LogMessage
+  // participant changes arrive under several class names depending on client
+  if (d.class === 'ParticipantAddedGroupThread' || d.class === 'ParticipantLeftGroupThread') {
+    const threadID = threadOf(d) || String(d.threadFbId || '');
+    if (!threadID) return null;
+
+    const added = d.addedParticipantFbIds || d.addedParticipants || [];
+    const left = d.leftParticipantFbId ? [d.leftParticipantFbId] : [];
+    const list = (Array.isArray(added) ? added : [added]).filter(Boolean).map(String);
+    const gone = (Array.isArray(left) ? left : [left]).filter(Boolean).map(String);
+    const ids = d.class === 'ParticipantAddedGroupThread' ? list : gone;
+
+    return {
+      type: 'log',
+      subtype: d.class === 'ParticipantAddedGroupThread' ? 'log:subscribe' : 'log:unsubscribe',
+      threadID,
+      actorID: String((d.messageMetadata || {}).actorFbId || ''),
+      messageID: String((d.messageMetadata || {}).messageId || ''),
+      participants: ids.map((userID) => ({ userID, name: '' })),
+      text: String((d.messageMetadata || {}).adminText || ''),
+      isGroup: true,
+    };
+  }
+
   if (d.class === 'LogMessage' || d.class === 'ThreadEvent') {
     const threadID = threadOf(d) || String(d.threadFbId || '');
     if (!threadID) return null;
