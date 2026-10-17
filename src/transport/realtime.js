@@ -144,14 +144,14 @@ class Realtime {
       this.onError = (err) => { clearTimeout(timer); reject(err); };
       this.client.once('error', (e) => { clearTimeout(timer); reject(new FcaError('MQTT_ERROR', String(e.message || e))); });
       this.client.once('connect', () => {
-        this.client.subscribe(TOPICS, (err) => {
+        this.client.subscribe(TOPICS, { qos: 1 }, (err) => {
           if (err) { clearTimeout(timer); return reject(new FcaError('SUBSCRIBE_FAILED', err.message)); }
           this.client.publish('/messenger_sync_create_queue', JSON.stringify({
             sync_api_version: 10, max_deltas_able_to_process: 100, delta_batch_size: 500,
             encoding: 'JSON', entity_fbid: this.c.userID, initial_titan_sequence_id: seqId, device_params: null,
-          }), { qos: 0 });
-          this.client.publish('/foreground_state', JSON.stringify({ foreground: true }), { qos: 0 });
-          this.client.publish('/set_client_settings', JSON.stringify({ make_user_available_when_in_foreground: true }), { qos: 0 });
+          }), { qos: 1 });
+          this.client.publish('/foreground_state', JSON.stringify({ foreground: true }), { qos: 1 });
+          this.client.publish('/set_client_settings', JSON.stringify({ make_user_available_when_in_foreground: true }), { qos: 1 });
           clearTimeout(timer);
           this.ready_ = true;
           resolve();
