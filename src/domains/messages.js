@@ -18,7 +18,8 @@ module.exports = (ctx) => {
 
       ctx.nodeify(ctx.write({
         name: 'sendMessage',
-        args: [text, threadID],
+        // an attachment-only message is legal; the guard only needs a non-empty text
+        args: [text || (attachment ? '[media]' : ''), threadID],
         lane: `thread:${threadID}`,
         key: `send:${threadID}:${String(text).slice(0, 64)}:${replyTo || ''}:${attachment && (attachment.path || attachment.filename) || ''}`,
         run: async () => {

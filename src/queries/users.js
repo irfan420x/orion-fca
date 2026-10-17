@@ -14,7 +14,10 @@ function collectUsers(node, out) {
       firstName: node.firstName || null,
       vanity: node.username || node.vanity || null,
       profileUrl: node.url || (node.username ? `https://www.facebook.com/${node.username}` : null),
-      thumbSrc: (node.big_image || {}).uri || (node.profile_picture || {}).uri || null,
+      thumbSrc: (node.big_image_src || {}).uri
+        || (node.big_image || {}).uri
+        || (node.profile_picture || {}).uri
+        || null,
       gender: typeof node.gender === 'number' ? node.gender : null,
       isFriend: node.is_friend === true,
     };
