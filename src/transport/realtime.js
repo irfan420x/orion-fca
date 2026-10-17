@@ -215,9 +215,9 @@ class Realtime {
           this.client.publish('/messenger_sync_create_queue', JSON.stringify({
             sync_api_version: 10, max_deltas_able_to_process: 1000, delta_batch_size: 500,
             encoding: 'JSON', entity_fbid: this.c.userID, initial_titan_sequence_id: seqId, device_params: null,
-          }), { qos: 1 });
-          this.client.publish('/foreground_state', JSON.stringify({ foreground: true }), { qos: 1 });
-          this.client.publish('/set_client_settings', JSON.stringify({ make_user_available_when_in_foreground: true }), { qos: 1 });
+          }), { qos: 0 });
+          this.client.publish('/foreground_state', JSON.stringify({ foreground: true }), { qos: 0 });
+          this.client.publish('/set_client_settings', JSON.stringify({ make_user_available_when_in_foreground: true }), { qos: 0 });
           clearTimeout(timer);
           this.ready_ = true;
           this.lastDeltaAt = Date.now();

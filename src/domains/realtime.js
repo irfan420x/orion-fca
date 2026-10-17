@@ -9,7 +9,13 @@ module.exports = (ctx) => {
       const cb = typeof callback === 'function' ? callback : () => {};
       const rt = ctx.realtime;
 
+      // only the newest listener may deliver: re-attaching must not double
+      // dispatch or leak handlers into the emitter
+      state.listenGen = (state.listenGen || 0) + 1;
+      const gen = state.listenGen;
+
       rt.on((event) => {
+        if (gen !== state.listenGen) return;
         if (event.type === 'message' && event.messageID) ctx.ledger.putMessage(event);
         if (event.type === 'error' && String(event.error).includes('QUEUE_OVERFLOW')) return;
         cb(null, event);
