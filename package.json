@@ -1,0 +1,12 @@
+{
+  "name": "orion-fca",
+  "version": "0.1.0",
+  "description": "Own Facebook Messenger client for ORION — no third-party FCA code",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": { "test": "node test/smoke.js" },
+  "dependencies": { "mqtt": "^5.16.1", "ws": "^8.18.1" },
+  "license": "MIT",
+  "author": "Irfan Ahmmed",
+  "private": true
+}

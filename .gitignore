@@ -1,0 +1,10 @@
+node_modules/
+package-lock.json
+*.log
+account.txt
+appstate.json
+fbstate.json
+.env
+.vercel/
+coverage/
+.DS_Store
