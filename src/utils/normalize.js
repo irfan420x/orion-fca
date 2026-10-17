@@ -7,6 +7,41 @@ function threadOf(d) {
   return String(tk.threadFbId || tk.otherUserFbId || (meta.cid && meta.cid.conversationFbid) || '');
 }
 
+/**
+ * Facebook sends reply context in two shapes:
+ *   d.deltaMessageReply.repliedToMessage.messageMetadata → full author + body
+ *   d.deltaMessageReply.replyToMessageId → id only
+ * messageMetadata.replyToMessageId also shows up on some builds.
+ * Read all three; the dispatcher resolves the author when only an id is given.
+ */
+function replyOf(d, meta) {
+  const reply = d.deltaMessageReply;
+
+  if (reply && reply.repliedToMessage) {
+    const rm = reply.repliedToMessage.messageMetadata || {};
+    if (rm.messageId || rm.actorFbId) {
+      return {
+        messageID: String(rm.messageId || ''),
+        senderID: rm.actorFbId ? String(rm.actorFbId) : undefined,
+        body: String(reply.repliedToMessage.body || ''),
+        timestamp: Number(rm.timestamp || 0) || undefined,
+      };
+    }
+  }
+
+  const id = reply && reply.replyToMessageId;
+  if (id) {
+    return { messageID: String(id.id || id) };
+  }
+
+  const mid = meta && meta.replyToMessageId;
+  if (mid) {
+    return { messageID: String(mid.id || mid) };
+  }
+
+  return undefined;
+}
+
 function deltaToEvent(d) {
   if (!d || typeof d !== 'object') return null;
 
@@ -26,7 +61,7 @@ function deltaToEvent(d) {
       participantIDs: Array.isArray(d.participants) ? d.participants.map(String) : [],
       attachments: d.attachments || [],
       mentions: {},
-      messageReply: meta.replyToMessageId ? { messageID: String(meta.replyToMessageId) } : undefined,
+      messageReply: replyOf(d, meta),
     };
   }
 
