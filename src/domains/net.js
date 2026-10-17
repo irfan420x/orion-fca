@@ -1,12 +1,12 @@
 'use strict';
-/* net — raw escape hatches for anything not modelled yet. */
+/* net — raw escape hatches. */
 
-module.exports = function register(ctx) {
-  const { session } = ctx;
+module.exports = (ctx) => {
+  const { client } = ctx;
 
   return {
     httpGet(url, callback) {
-      ctx.nodeify(session.get(url), callback);
+      ctx.nodeify(client.http.get(url), callback);
     },
 
     httpPost(url, form, callback) {
@@ -17,7 +17,7 @@ module.exports = function register(ctx) {
           method: 'POST',
           headers: {
             'user-agent': 'Mozilla/5.0',
-            cookie: session.cookie,
+            cookie: client.cookie,
             'content-type': 'application/x-www-form-urlencoded',
           },
           body,

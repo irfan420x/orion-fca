@@ -44,26 +44,36 @@ Not mapped yet: `changeAvatar`, `changeArchivedStatus`, `handleMessageRequest`,
 ## Project layout
 
 ```
-index.js            login() only — wires session + context + auto-loaded api
-src/session.js      appstate, token bootstrap, Relay GraphQL/batch
-src/transport.js    MQTT over WebSocket (send, tasks, delta stream)
-src/context.js      shared state handed to every api module
-src/api/index.js    auto-loader: every file here registers itself
-src/api/
-  identity.js       who we are, options
-  messages.js       send / edit / unsend / react / read state
-  threads.js        list, info, history, archive, message requests
-  groups.js         participants, admins, nickname, title, theme, image
-  users.js          profiles, friend requests
-  realtime.js       incoming event stream
-  net.js            httpGet / httpPost
-  media.js          uploads (in progress)
-test/smoke.js       live check: login → threads → send → listen
+index.js                 login() only — wiring, nothing else
+src/
+  core/
+    client.js            session: cookies, identity, tokens
+    context.js           shared state handed to every domain
+    errors.js            typed errors (FcaError, FB code map)
+  protocol/
+    endpoints.js         doc ids, task labels, task versions
+    topics.js            realtime topic list
+  transport/
+    http.js              browser-faithful Relay GET/POST + token bootstrap
+    realtime.js          MQTT over WebSocket: send, tasks, delta stream
+    requests.js          /ls_req envelope builder + ack parsing
+  queries/
+    threads.js           thread list / info / history shapes
+    users.js             profile shapes
+  domains/               ← the public api, auto-loaded one file per area
+    account.js  messages.js  threads.js  groups.js  users.js
+    realtime.js  net.js
+  utils/
+    callback.js          node-style callback adapter
+    normalize.js         wire delta → public event
+  api/loader.js          scans src/domains, merges, fails on duplicates
+test/smoke.js            login → threads → send → listen
 ```
 
-**Adding an API never touches `index.js`.** Drop a file in `src/api/` that exports
-`(ctx) => ({ methodName(...) {...} })` — the loader merges it, and any duplicate
-name fails loudly instead of silently shadowing. `api.methods()` lists the result.
+**Adding an API never touches `index.js`.** Drop `src/domains/<name>.js`
+exporting `(ctx) => ({ methodName(...) {...} })`; the loader merges it, and a
+duplicate name throws `DUPLICATE_API` instead of silently shadowing.
+`api.methods()` lists the result at runtime.
 
 ## How it works
 

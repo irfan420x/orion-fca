@@ -4,17 +4,20 @@
  *   const login = require('orion-fca');
  *   login({ appState }, options, (err, api) => { ... });
  *
- * This file only wires things together:
- *   session   → the Facebook HTTP/GraphQL side
- *   context   → shared state handed to every api module
- *   src/api/* → the actual methods, auto-loaded (add a file = add an API)
+ * Structure:
+ *   src/core        client (session) + context (shared state) + errors
+ *   src/protocol    endpoint registry: doc ids, task labels, topics
+ *   src/transport   http (Relay), realtime (MQTT), requests (envelopes)
+ *   src/queries     read shapes (threads, users)
+ *   src/domains     the public api, auto-loaded — one file per domain
+ *   src/utils       callbacks and delta normalization
  */
 
-const { Session } = require('./src/session');
-const { createContext } = require('./src/context');
-const { loadApi } = require('./src/api');
+const { Client } = require('./src/core/client');
+const { createContext } = require('./src/core/context');
+const { loadApi } = require('./src/api/loader');
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 
 function login(credentials, options, callback) {
   let cb = callback;
@@ -25,17 +28,15 @@ function login(credentials, options, callback) {
   const appState = credentials && (credentials.appState || credentials);
   if (!appState) return cb({ error: 'appState is required' });
 
-  const session = new Session(appState);
-  session.setOptions(opts);
+  const client = new Client(appState, opts || {});
 
-  session.login()
+  client.login()
     .then(() => {
-      const ctx = createContext(session, opts);
-      const api = loadApi(ctx);
+      const api = loadApi(createContext(client, opts || {}));
       api.version = VERSION;
       cb(null, api);
     })
-    .catch((e) => cb(e && e.message ? e : { error: String(e) }));
+    .catch((e) => cb(e && e.toJSON ? e.toJSON() : { error: String(e && e.message ? e.message : e) }));
 }
 
 module.exports = login;
