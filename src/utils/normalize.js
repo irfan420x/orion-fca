@@ -42,6 +42,40 @@ function replyOf(d, meta) {
   return undefined;
 }
 
+/* A mention is carried as offsets into the body, not as a name:
+ *   data.prng = [{"i":"<uid>","o":0,"l":11}, …]
+ * fall back to the metadata map some clients use. */
+function mentionsOf(d) {
+  const body = String(d.body || '');
+  const out = {};
+
+  let rows = [];
+  try { rows = JSON.parse((d.data && d.data.prng) || '[]'); } catch { rows = []; }
+  if (Array.isArray(rows) && rows.length) {
+    for (const row of rows) {
+      const id = String((row && row.i) || '');
+      const off = parseInt(String((row && row.o) ?? 0), 10) || 0;
+      const len = parseInt(String((row && row.l) ?? 0), 10) || 0;
+      if (id) out[id] = body.substring(off, off + len);
+    }
+    return out;
+  }
+
+  const md = d.messageMetadata || {};
+  const gb = md.data && md.data.data && md.data.data.Gb && md.data.data.Gb.asMap && md.data.data.Gb.asMap.data;
+  if (gb) {
+    for (const key of Object.keys(gb)) {
+      const entry = gb[key] && gb[key].asMap && gb[key].asMap.data;
+      if (!entry) continue;
+      const id = entry.id && entry.id.asLong ? String(entry.id.asLong) : null;
+      const off = parseInt(String((entry.offset && entry.offset.asLong) || 0), 10) || 0;
+      const len = parseInt(String((entry.length && entry.length.asLong) || 0), 10) || 0;
+      if (id) out[id] = body.substring(off, off + len);
+    }
+  }
+  return out;
+}
+
 function deltaToEvent(d) {
   if (!d || typeof d !== 'object') return null;
 
@@ -60,7 +94,7 @@ function deltaToEvent(d) {
       isGroup: Boolean((meta.threadKey || {}).threadFbId),
       participantIDs: Array.isArray(d.participants) ? d.participants.map(String) : [],
       attachments: d.attachments || [],
-      mentions: {},
+      mentions: mentionsOf(d),
       messageReply: replyOf(d, meta),
     };
   }
