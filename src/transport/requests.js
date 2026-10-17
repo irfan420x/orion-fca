@@ -9,8 +9,10 @@ function offlineId() {
 
 function buildTask({ label, payload, queue, version, requestId, taskId }) {
   const epoch = (BigInt(Date.now()) << 22n).toString();
+  // one id for both the envelope and the promise, or every ack is ignored
+  const rid = requestId ?? Math.floor(1e6 + Math.random() * 9e7);
   return {
-    requestId: requestId ?? Math.floor(100 + Math.random() * 900),
+    requestId: rid,
     content: {
       app_id: APP_ID,
       payload: JSON.stringify({
@@ -18,14 +20,14 @@ function buildTask({ label, payload, queue, version, requestId, taskId }) {
           label: String(label),
           payload: JSON.stringify(payload),
           queue_name: String(queue),
-          task_id: taskId ?? Math.floor(Math.random() * 1001),
+          task_id: taskId ?? Date.now() % 90000,
           failure_count: null,
         }],
         epoch_id: epoch,
         version_id: version || TASK_VERSIONS.default,
         data_trace_id: `#${require('crypto').randomBytes(6).toString('base64').replace(/=+$/, '')}`,
       }),
-      request_id: requestId ?? Math.floor(100 + Math.random() * 900),
+      request_id: rid,
       type: 3,
     },
   };
