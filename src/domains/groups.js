@@ -7,6 +7,7 @@ const { notImplemented } = require('../core/errors');
 module.exports = (ctx) => {
   const api = {
     addUserToGroup(userIDs, threadID, callback) {
+      ctx.guard('addUserToGroup', [userIDs, threadID]);
       ctx.nodeify(ctx.task({
         label: TASK_LABELS.addUsers,
         version: TASK_VERSIONS.addUsers,
@@ -16,6 +17,7 @@ module.exports = (ctx) => {
     },
 
     removeUserFromGroup(userID, threadID, callback) {
+      ctx.guard('removeUserFromGroup', [userID, threadID]);
       ctx.nodeify(ctx.task({
         label: TASK_LABELS.removeUser,
         version: TASK_VERSIONS.removeUser,
@@ -25,6 +27,7 @@ module.exports = (ctx) => {
     },
 
     changeNickname(nickname, threadID, participantID, callback) {
+      ctx.guard('changeNickname', [nickname, threadID, participantID]);
       ctx.nodeify(ctx.task({
         label: TASK_LABELS.nickname,
         queue: 'thread_participant_nickname',
@@ -38,6 +41,7 @@ module.exports = (ctx) => {
     },
 
     setTitle(title, threadID, callback) {
+      ctx.guard('setTitle', [title, threadID]);
       ctx.nodeify(ctx.task({
         label: TASK_LABELS.title,
         queue: String(threadID),
@@ -54,6 +58,7 @@ module.exports = (ctx) => {
     },
 
     changeThreadEmoji(emoji, threadID, callback) {
+      ctx.guard('changeThreadEmoji', [emoji, threadID]);
       ctx.nodeify(ctx.task({
         label: TASK_LABELS.emoji,
         queue: 'thread_quick_reaction',
@@ -67,6 +72,7 @@ module.exports = (ctx) => {
     },
 
     changeThreadColor(color, threadID, callback) {
+      ctx.guard('changeThreadColor', [color, threadID]);
       ctx.nodeify(ctx.task({
         label: TASK_LABELS.theme,
         queue: 'thread_theme',
@@ -75,6 +81,7 @@ module.exports = (ctx) => {
     },
 
     changeGroupImage(imageID, threadID, callback) {
+      ctx.guard('changeGroupImage', [imageID, threadID]);
       if (typeof imageID !== 'string' || !/^\d+$/.test(imageID)) {
         return ctx.nodeify(Promise.reject(notImplemented('changeGroupImage without an uploaded image id')), callback);
       }

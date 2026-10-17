@@ -11,14 +11,14 @@ module.exports = (ctx) => {
     getThreadList(limit, timestamp, tags, callback) {
       if (typeof tags === 'function') callback = tags;
       ctx.nodeify(threadList(client, Number(limit) || 20).then((r) => {
-        r.threads.forEach((t) => state.threads.set(t.threadID, t));
+        r.threads.forEach((t) => ctx.ledger.putThread(t, 'query'));
         return r.threads;
       }), callback);
     },
 
     getThreadInfo(threadID, callback) {
       ctx.nodeify(threadInfo(client, threadID).then((info) => {
-        state.threads.set(String(threadID), info);
+        ctx.ledger.putThread(info, 'query');
         return info;
       }), callback);
     },

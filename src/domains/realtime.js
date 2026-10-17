@@ -10,7 +10,7 @@ module.exports = (ctx) => {
       const rt = ctx.realtime;
 
       rt.on((event) => {
-        if (event.type === 'message' && event.messageID) state.msgThread.set(event.messageID, event.threadID);
+        if (event.type === 'message' && event.messageID) ctx.ledger.putMessage(event);
         if (event.type === 'error' && String(event.error).includes('QUEUE_OVERFLOW')) return;
         cb(null, event);
       });

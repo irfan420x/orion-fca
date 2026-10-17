@@ -46,34 +46,40 @@ Not mapped yet: `changeAvatar`, `changeArchivedStatus`, `handleMessageRequest`,
 ```
 index.js                 login() only — wiring, nothing else
 src/
-  core/
-    client.js            session: cookies, identity, tokens
-    context.js           shared state handed to every domain
-    errors.js            typed errors (FcaError, FB code map)
-  protocol/
-    endpoints.js         doc ids, task labels, task versions
-    topics.js            realtime topic list
-  transport/
-    http.js              browser-faithful Relay GET/POST + token bootstrap
-    realtime.js          MQTT over WebSocket: send, tasks, delta stream
-    requests.js          /ls_req envelope builder + ack parsing
-  queries/
-    threads.js           thread list / info / history shapes
-    users.js             profile shapes
-  domains/               ← the public api, auto-loaded one file per area
-    account.js  messages.js  threads.js  groups.js  users.js
-    realtime.js  net.js
-  utils/
-    callback.js          node-style callback adapter
-    normalize.js         wire delta → public event
-  api/loader.js          scans src/domains, merges, fails on duplicates
-test/smoke.js            login → threads → send → listen
+  core/       client.js · context.js · errors.js
+  contracts/  shapes.js            JSDoc wire contracts (no build step)
+  protocol/   endpoints.js · topics.js
+  transport/  http.js · realtime.js · requests.js
+  queries/    threads.js · users.js
+  state/      ledger.js            bounded, event-fed thread/message cache
+  queue/      outbox.js            dedupe · rate limit · per-lane order · retry
+  policy/     capability.js        local capability + argument checks
+  domains/    account · messages · threads · groups · users · realtime · net · diagnostics
+  utils/      callback.js · normalize.js
+  api/loader.js                    scans src/domains, merges, fails on duplicates
 ```
 
-**Adding an API never touches `index.js`.** Drop `src/domains/<name>.js`
-exporting `(ctx) => ({ methodName(...) {...} })`; the loader merges it, and a
-duplicate name throws `DUPLICATE_API` instead of silently shadowing.
-`api.methods()` lists the result at runtime.
+### The four layers that make it stable
+
+**state/ledger** — bounded LRU + TTL over threads and messages, with
+`messageID → threadID` indexing (what edit/unsend/reaction need), source
+tracking (`query` vs `event`) and change events. A long-running bot cannot
+grow without limit, and callers never poll.
+
+**queue/outbox** — every write passes through it: identical commands inside the
+dedupe window collapse into one send, a token bucket absorbs bursts, operations
+on the same thread run in order while different threads run in parallel, and
+only transport-class failures are retried with exponential backoff.
+
+**policy/capability** — arguments and preconditions are checked locally, so a
+bad call fails immediately with `INVALID_ARGUMENT` / `NOT_A_GROUP` /
+`NOT_IMPLEMENTED` instead of an opaque Facebook number three seconds later.
+
+**contracts/shapes** — the public boundary is documented as JSDoc typedefs, so
+editors type-check the library without a TypeScript build.
+
+`diagnostics` domain exposes `capabilities()`, `ledgerStats()`, `outboxStats()`
+and `selfCheck()` — added as one file, without editing the core.
 
 ## How it works
 

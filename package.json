@@ -1,6 +1,6 @@
 {
   "name": "orion-fca",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Own Facebook Messenger client for ORION \u2014 no third-party FCA code",
   "main": "index.js",
   "type": "commonjs",

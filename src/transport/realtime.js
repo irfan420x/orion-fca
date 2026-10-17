@@ -122,7 +122,7 @@ class Realtime {
 
   send(threadID, text, replyTo) {
     const { requestId, content } = this._sendEnvelope(threadID, text, replyTo);
-    return this._awaitAck(requestId, (payload) => {
+    return this._awaitAck(requestId, content, (payload) => {
       const ids = extractAck(payload);
       return { messageID: ids.messageID, threadID: ids.threadID || String(threadID) };
     });
@@ -164,10 +164,10 @@ class Realtime {
 
   task(spec) {
     const { requestId, content } = buildTask(spec);
-    return this._awaitAck(requestId, (payload) => payload);
+    return this._awaitAck(requestId, content, (payload) => payload);
   }
 
-  _awaitAck(requestId, map) {
+  _awaitAck(requestId, content, map) {
     return new Promise((resolve, reject) => {
       if (!this.client || !this.client.connected) return reject(new FcaError('NOT_CONNECTED', 'transport is not connected'));
       const onMessage = (topic, raw) => {
