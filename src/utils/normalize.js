@@ -65,6 +65,22 @@ function deltaToEvent(d) {
     };
   }
 
+  // join / leave / admin changes arrive as LogMessage
+  if (d.class === 'LogMessage' || d.class === 'ThreadEvent') {
+    const threadID = threadOf(d) || String(d.threadFbId || '');
+    if (!threadID) return null;
+    return {
+      type: 'log',
+      subtype: String(d.logMessageType || d.subtype || 'unknown'),
+      threadID,
+      actorID: String(d.actorFbId || ''),
+      participants: (d.untypedData && (d.untypedData.addedParticipants || d.untypedData.leftParticipants) || [])
+        .map((p) => ({ userID: String(p.userFbId || ''), name: String(p.fullName || '') }))
+        .filter((p) => p.userID),
+      isGroup: Boolean((d.messageMetadata || {}).threadKey && (d.messageMetadata.threadKey.threadFbId)),
+    };
+  }
+
   if (d.class === 'ReadReceipt') {
     return {
       type: 'read_receipt',

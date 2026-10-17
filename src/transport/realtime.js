@@ -147,10 +147,11 @@ class Realtime {
         this.client.subscribe(TOPICS, (err) => {
           if (err) { clearTimeout(timer); return reject(new FcaError('SUBSCRIBE_FAILED', err.message)); }
           this.client.publish('/messenger_sync_create_queue', JSON.stringify({
-            sync_api_version: 11, max_deltas_able_to_process: 100, delta_batch_size: 500,
+            sync_api_version: 10, max_deltas_able_to_process: 100, delta_batch_size: 500,
             encoding: 'JSON', entity_fbid: this.c.userID, initial_titan_sequence_id: seqId, device_params: null,
           }), { qos: 0 });
           this.client.publish('/foreground_state', JSON.stringify({ foreground: true }), { qos: 0 });
+          this.client.publish('/set_client_settings', JSON.stringify({ make_user_available_when_in_foreground: true }), { qos: 0 });
           clearTimeout(timer);
           this.ready_ = true;
           resolve();
@@ -164,6 +165,19 @@ class Realtime {
     return this._awaitAck(requestId, content, (payload) => {
       const ids = extractAck(payload);
       return { messageID: ids.messageID, threadID: ids.threadID || String(threadID) };
+    });
+  }
+
+  /** Publish without waiting for the ack — Facebook takes ~2.5s to confirm,
+   *  and nothing that does not need the message id should wait that long. */
+  sendFast(threadID, text, replyTo, attachmentFbids) {
+    const { content } = this._sendEnvelope(threadID, text, replyTo, attachmentFbids);
+    return new Promise((resolve, reject) => {
+      if (!this.client || !this.client.connected) return reject(new FcaError('NOT_CONNECTED', 'transport is not connected'));
+      this.client.publish('/ls_req', JSON.stringify(content), { qos: 0 }, (err) => {
+        if (err) return reject(err);
+        resolve({ messageID: null, threadID: String(threadID), queued: true });
+      });
     });
   }
 

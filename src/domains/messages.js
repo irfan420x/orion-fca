@@ -30,7 +30,8 @@ module.exports = (ctx) => {
             fbids = uploaded.ids;
           }
           const rt = await ctx.rt();
-          return rt.send(threadID, text, replyTo, fbids);
+          // noAck: fire and forget, for replies whose id nobody needs
+          return (msg && msg.noAck) ? rt.sendFast(threadID, text, replyTo, fbids) : rt.send(threadID, text, replyTo, fbids);
         },
       }), callback);
     },
