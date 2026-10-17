@@ -80,6 +80,12 @@ async function threadHistory(client, threadID, amount = 20, before = null) {
     timestamp: String(m.timestamp_precise || m.timestamp || ''),
     attachments: m.blob_attachments || [],
     type: m.__typename || 'message',
+    // participant notices carry ids, not text — the only reliable join signal
+    participants: [...(m.participants_added || []), ...(m.participants_removed || [])]
+      .map((p) => ({ userID: String((p && p.id) || p || ''), name: String((p && p.name) || '') }))
+      .filter((p) => p.userID),
+    added: Array.isArray(m.participants_added) && m.participants_added.length > 0,
+    removed: Array.isArray(m.participants_removed) && m.participants_removed.length > 0,
   })).filter((m) => m.messageID);
 }
 
