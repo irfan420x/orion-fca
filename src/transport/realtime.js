@@ -114,6 +114,12 @@ class Realtime {
       this.emit({ type: 'error', error: err.message });
     });
     this.client.on('message', (topic, raw) => this.handle(topic, raw));
+    // a closed socket used to leave the bot deaf until a manual restart
+    this.client.on('close', () => {
+      if (this._closing) return;
+      this.lastDeltaAt = Date.now();
+      this.reconnect();
+    });
     return this;
   }
 
@@ -144,7 +150,13 @@ class Realtime {
     if (this.watchdog) return;
     this.watchdog = setInterval(() => {
       const idleMs = Date.now() - this.lastDeltaAt;
-      if (idleMs > 45000 && this.client && this.client.connected) {
+      if (!this.client || !this.client.connected) {
+        // not connected at all — this is the "silently dead" case
+        this.lastDeltaAt = Date.now();
+        this.reconnect();
+        return;
+      }
+      if (idleMs > 45000) {
         this.lastDeltaAt = Date.now();
         this.reconnect();
       }
