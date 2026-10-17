@@ -197,7 +197,7 @@ class Realtime {
       setTimeout(() => {
         this.client.removeListener('message', onMessage);
         reject(new FcaError('ACK_TIMEOUT', 'no reply on /ls_resp'));
-      }, 15000);
+      }, 8000);
     });
   }
 

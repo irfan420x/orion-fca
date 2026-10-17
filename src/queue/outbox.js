@@ -16,7 +16,7 @@ const { FcaError } = require('../core/errors');
 const RETRYABLE = new Set(['ACK_TIMEOUT', 'MQTT_ERROR', 'NOT_CONNECTED', 'RATE_LIMITED']);
 
 class Outbox {
-  constructor({ ratePerSecond = 4, burst = 6, maxRetries = 3, baseDelayMs = 400, dedupeMs = 1500 } = {}) {
+  constructor({ ratePerSecond = 4, burst = 6, maxRetries = 1, baseDelayMs = 400, dedupeMs = 1500 } = {}) {
     this.ratePerSecond = ratePerSecond;
     this.capacity = burst;
     this.tokens = burst;
