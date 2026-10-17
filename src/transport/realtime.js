@@ -144,7 +144,7 @@ class Realtime {
     if (this.watchdog) return;
     this.watchdog = setInterval(() => {
       const idleMs = Date.now() - this.lastDeltaAt;
-      if (idleMs > 120000 && this.client && this.client.connected) {
+      if (idleMs > 45000 && this.client && this.client.connected) {
         this.lastDeltaAt = Date.now();
         this.reconnect();
       }
@@ -152,12 +152,27 @@ class Realtime {
     if (this.watchdog.unref) this.watchdog.unref();
   }
 
-  reconnect() {
+  reconnect(attempt = 0) {
     try { if (this.client) this.client.end(true); } catch { /* already gone */ }
     this.client = null;
     this.ready_ = false;
     this.connect();
-    this.ready(this.seq || 0).catch(() => {});
+    this.ready(this.seq || 0).catch(() => {
+      const wait = Math.min(15000, 2000 * (attempt + 1));
+      setTimeout(() => this.reconnect(attempt + 1), wait).unref?.();
+    });
+  }
+
+  /** Wait for a live connection instead of failing a reply outright. */
+  async _ensureConnected(timeoutMs = 15000) {
+    if (this.client && this.client.connected) return true;
+    try {
+      await Promise.race([
+        this.ready(this.seq || 0),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('connect wait timeout')), timeoutMs).unref?.()),
+      ]);
+    } catch { /* fall through */ }
+    return Boolean(this.client && this.client.connected);
   }
 
   ready(seqId = this.seq || 0) {
@@ -197,8 +212,11 @@ class Realtime {
    *  and nothing that does not need the message id should wait that long. */
   sendFast(threadID, text, replyTo, attachmentFbids) {
     const { content } = this._sendEnvelope(threadID, text, replyTo, attachmentFbids);
-    return new Promise((resolve, reject) => {
-      if (!this.client || !this.client.connected) return reject(new FcaError('NOT_CONNECTED', 'transport is not connected'));
+    return new Promise(async (resolve, reject) => {
+      const ok = await this._ensureConnected().catch(() => false);
+      if (!ok || !this.client || !this.client.connected) {
+        return reject(new FcaError('NOT_CONNECTED', 'transport is not connected'));
+      }
       this.client.publish('/ls_req', JSON.stringify(content), { qos: 0 }, (err) => {
         if (err) return reject(err);
         resolve({ messageID: null, threadID: String(threadID), queued: true });
@@ -250,9 +268,17 @@ class Realtime {
     return this._awaitAck(requestId, content, (payload) => payload);
   }
 
-  _awaitAck(requestId, content, map) {
+  _awaitAck(requestId, content, map, attempt = 0) {
     return new Promise((resolve, reject) => {
-      if (!this.client || !this.client.connected) return reject(new FcaError('NOT_CONNECTED', 'transport is not connected'));
+      if (!this.client || !this.client.connected) {
+        // one queued retry after the link returns, instead of a hard failure
+        if (attempt >= 2) return reject(new FcaError('NOT_CONNECTED', 'transport is not connected'));
+        return this._ensureConnected(20000)
+          .then((ok) => (ok
+            ? this._awaitAck(requestId, content, map, attempt + 1).then(resolve, reject)
+            : reject(new FcaError('NOT_CONNECTED', 'transport is not connected'))))
+          .catch((e) => reject(e));
+      }
       const onMessage = (topic, raw) => {
         if (topic !== '/ls_resp') return;
         let msg;
