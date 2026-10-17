@@ -46,6 +46,8 @@ function socketStream(url, headers) {
 class Realtime {
   constructor(client) {
     this.c = client;
+    this.lastDeltaAt = Date.now();
+    this.watchdog = null;
     this.client = null;
     this.handlers = [];
     this.ready_ = false;
@@ -137,6 +139,27 @@ class Realtime {
     }
   }
 
+  /** Facebook's stream can go quiet without closing. Reconnect when it does. */
+  _startWatchdog() {
+    if (this.watchdog) return;
+    this.watchdog = setInterval(() => {
+      const idleMs = Date.now() - this.lastDeltaAt;
+      if (idleMs > 120000 && this.client && this.client.connected) {
+        this.lastDeltaAt = Date.now();
+        this.reconnect();
+      }
+    }, 30000);
+    if (this.watchdog.unref) this.watchdog.unref();
+  }
+
+  reconnect() {
+    try { if (this.client) this.client.end(true); } catch { /* already gone */ }
+    this.client = null;
+    this.ready_ = false;
+    this.connect();
+    this.ready(this.seq || 0).catch(() => {});
+  }
+
   ready(seqId = this.seq || 0) {
     if (this.ready_ && this.client && this.client.connected) return Promise.resolve();
     return new Promise((resolve, reject) => {
@@ -147,13 +170,15 @@ class Realtime {
         this.client.subscribe(TOPICS, (err) => {
           if (err) { clearTimeout(timer); return reject(new FcaError('SUBSCRIBE_FAILED', err.message)); }
           this.client.publish('/messenger_sync_create_queue', JSON.stringify({
-            sync_api_version: 10, max_deltas_able_to_process: 100, delta_batch_size: 500,
+            sync_api_version: 10, max_deltas_able_to_process: 1000, delta_batch_size: 500,
             encoding: 'JSON', entity_fbid: this.c.userID, initial_titan_sequence_id: seqId, device_params: null,
           }), { qos: 0 });
           this.client.publish('/foreground_state', JSON.stringify({ foreground: true }), { qos: 0 });
           this.client.publish('/set_client_settings', JSON.stringify({ make_user_available_when_in_foreground: true }), { qos: 0 });
           clearTimeout(timer);
           this.ready_ = true;
+          this.lastDeltaAt = Date.now();
+          this._startWatchdog();
           resolve();
         });
       });
@@ -250,7 +275,12 @@ class Realtime {
 
   emit(event) { for (const fn of this.handlers) { try { fn(event); } catch { /* isolate */ } } }
   on(fn) { this.handlers.push(fn); return this; }
-  close() { try { this.client.end(true); } catch { /* noop */ } this.client = null; this.ready_ = false; }
+  close() {
+    if (this.watchdog) { clearInterval(this.watchdog); this.watchdog = null; }
+    try { this.client.end(true); } catch { /* noop */ }
+    this.client = null;
+    this.ready_ = false;
+  }
 }
 
 module.exports = { Realtime };
