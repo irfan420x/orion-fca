@@ -41,6 +41,30 @@ repaired in one place.
 Not mapped yet: `changeAvatar`, `changeArchivedStatus`, `handleMessageRequest`,
 `handleFriendRequest`, `logout`.
 
+## Project layout
+
+```
+index.js            login() only — wires session + context + auto-loaded api
+src/session.js      appstate, token bootstrap, Relay GraphQL/batch
+src/transport.js    MQTT over WebSocket (send, tasks, delta stream)
+src/context.js      shared state handed to every api module
+src/api/index.js    auto-loader: every file here registers itself
+src/api/
+  identity.js       who we are, options
+  messages.js       send / edit / unsend / react / read state
+  threads.js        list, info, history, archive, message requests
+  groups.js         participants, admins, nickname, title, theme, image
+  users.js          profiles, friend requests
+  realtime.js       incoming event stream
+  net.js            httpGet / httpPost
+  media.js          uploads (in progress)
+test/smoke.js       live check: login → threads → send → listen
+```
+
+**Adding an API never touches `index.js`.** Drop a file in `src/api/` that exports
+`(ctx) => ({ methodName(...) {...} })` — the loader merges it, and any duplicate
+name fails loudly instead of silently shadowing. `api.methods()` lists the result.
+
 ## How it works
 
 1. **Session** — the appstate cookies are sent with a complete desktop-Chrome header
