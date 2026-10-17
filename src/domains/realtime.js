@@ -16,8 +16,8 @@ module.exports = (ctx) => {
       });
 
       state.listening = true;
-      ctx.client.http && require('../queries/threads').threadList(ctx.client, 1)
-        .then((r) => rt.ready(r.seq))
+      // ctx.rt() connects once and opens the sync queue; ready() alone assumes a client
+      ctx.rt()
         .then(() => cb(null, { type: 'ready' }))
         .catch((e) => cb(e && e.toJSON ? e.toJSON() : { error: String(e && e.message ? e.message : e) }));
 
