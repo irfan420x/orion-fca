@@ -103,8 +103,8 @@ class Realtime {
     };
     const options = {
       clientId: 'mqttwsclient', protocolId: 'MQIsdp', protocolVersion: 3,
-      username: JSON.stringify(username), clean: true, keepalive: 30,
-      reconnectPeriod: 0, connectTimeout: 20000,
+      username: JSON.stringify(username), clean: true, keepalive: 10,
+      reschedulePings: false, reconnectPeriod: 0, connectTimeout: 20000,
     };
 
     this.client = new mqtt.MqttClient(() => socketStream(url, headers), options);
@@ -112,8 +112,24 @@ class Realtime {
       const err = new FcaError('MQTT_ERROR', String(e.message || e));
       if (this.onError) this.onError(err);
       this.emit({ type: 'error', error: err.message });
+      // mirrors the reference client: drop the socket and listen again
+      setTimeout(() => this.reconnect(), 1000).unref?.();
     });
-    this.client.on('message', (topic, raw) => this.handle(topic, raw));
+    this.client.on('message', (topic, raw) => {
+      if (this._handshake) { clearTimeout(this._handshake); this._handshake = null; }
+      this.handle(topic, raw);
+    });
+
+    // if the queue is not acknowledged shortly after connecting, the socket is
+    // half-open: end it and start over instead of waiting for a keepalive miss
+    if (this._handshake) clearTimeout(this._handshake);
+    this._handshake = setTimeout(() => {
+      this._handshake = null;
+      if (this.ready_) return;
+      this.emit({ type: 'error', error: 'queue handshake timed out' });
+      this.reconnect();
+    }, 8000);
+    if (this._handshake.unref) this._handshake.unref();
     // a closed socket used to leave the bot deaf until a manual restart
     this.client.on('close', () => {
       if (this._closing) return;
@@ -199,9 +215,9 @@ class Realtime {
           this.client.publish('/messenger_sync_create_queue', JSON.stringify({
             sync_api_version: 10, max_deltas_able_to_process: 1000, delta_batch_size: 500,
             encoding: 'JSON', entity_fbid: this.c.userID, initial_titan_sequence_id: seqId, device_params: null,
-          }), { qos: 0 });
-          this.client.publish('/foreground_state', JSON.stringify({ foreground: true }), { qos: 0 });
-          this.client.publish('/set_client_settings', JSON.stringify({ make_user_available_when_in_foreground: true }), { qos: 0 });
+          }), { qos: 1 });
+          this.client.publish('/foreground_state', JSON.stringify({ foreground: true }), { qos: 1 });
+          this.client.publish('/set_client_settings', JSON.stringify({ make_user_available_when_in_foreground: true }), { qos: 1 });
           clearTimeout(timer);
           this.ready_ = true;
           this.lastDeltaAt = Date.now();
