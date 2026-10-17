@@ -50,6 +50,34 @@ class Realtime {
     this.handlers = [];
     this.ready_ = false;
     this.onError = null;
+    this.seq = 0;
+    this._seqSavedAt = 0;
+    this.seqFile = (client.opts && client.opts.seqFile) || null;
+    this._loadSeq();
+  }
+
+  /* The sync sequence is what stops a restart from replaying the whole queue
+   * or sitting silent until Facebook decides to resend. Keep it on disk. */
+  _loadSeq() {
+    if (!this.seqFile) return;
+    try {
+      const raw = require('fs').readFileSync(this.seqFile, 'utf8');
+      const n = Number(JSON.parse(raw).seq || 0);
+      if (Number.isFinite(n) && n > 0) this.seq = n;
+    } catch { /* first run */ }
+  }
+
+  _saveSeq() {
+    if (!this.seqFile) return;
+    const now = Date.now();
+    if (now - this._seqSavedAt < 2000) return;
+    this._seqSavedAt = now;
+    try {
+      const fs = require('fs');
+      const dir = require('path').dirname(this.seqFile);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(this.seqFile, JSON.stringify({ seq: this.seq, at: now }));
+    } catch { /* best effort */ }
   }
 
   connect() {
@@ -109,7 +137,7 @@ class Realtime {
     }
   }
 
-  ready(seqId = 0) {
+  ready(seqId = this.seq || 0) {
     if (this.ready_ && this.client && this.client.connected) return Promise.resolve();
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new FcaError('MQTT_TIMEOUT', 'mqtt connect timeout')), 20000);
