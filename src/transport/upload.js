@@ -67,8 +67,15 @@ async function uploadFile(client, input) {
     buffer = input;
     filename = 'upload.bin';
     contentType = guessType(filename);
+  } else if (input && typeof input.pipe === 'function') {
+    // a stream (GoatBot hands us one) must be drained, not read as .buffer
+    const chunks = [];
+    for await (const chunk of input) chunks.push(Buffer.from(chunk));
+    buffer = Buffer.concat(chunks);
+    filename = input.filename || 'upload.jpg';
+    contentType = input.contentType || guessType(filename);
   } else {
-    buffer = input.buffer || Buffer.from(input.data || '');
+    buffer = Buffer.isBuffer(input.buffer) ? input.buffer : Buffer.from(input.data || '');
     filename = input.filename || 'upload.bin';
     contentType = input.contentType || guessType(filename);
   }

@@ -11,7 +11,7 @@ module.exports = (ctx) => {
     getThreadList(limit, timestamp, tags, callback) {
       if (typeof tags === 'function') { callback = tags; tags = null; }
       if (typeof timestamp === 'function') { callback = timestamp; timestamp = null; }
-      ctx.nodeify(threadList(client, Number(limit) || 20).then((r) => {
+      return ctx.nodeify(threadList(client, Number(limit) || 20).then((r) => {
         r.threads.forEach((t) => ctx.ledger.putThread(t, 'query'));
         return r.threads;
       }), callback);
@@ -19,7 +19,7 @@ module.exports = (ctx) => {
 
     getThreadInfo(threadID, callback) {
       ctx.guard('getThreadInfo', [threadID]);
-      ctx.nodeify(threadInfo(client, threadID).then((info) => {
+      return ctx.nodeify(threadInfo(client, threadID).then((info) => {
         ctx.ledger.putThread(info, 'query');
         return info;
       }), callback);
@@ -29,15 +29,15 @@ module.exports = (ctx) => {
       if (typeof timestamp === 'function') { callback = timestamp; timestamp = null; }
       if (typeof amount === 'function') { callback = amount; amount = 20; }
       ctx.guard('getThreadHistory', [threadID]);
-      ctx.nodeify(threadHistory(client, threadID, Number(amount) || 20, timestamp || null), callback);
+      return ctx.nodeify(threadHistory(client, threadID, Number(amount) || 20, timestamp || null), callback);
     },
 
     changeArchivedStatus(threadID, archived, callback) {
-      ctx.nodeify(Promise.reject(notImplemented('changeArchivedStatus')), callback);
+      return ctx.nodeify(Promise.reject(notImplemented('changeArchivedStatus')), callback);
     },
 
     handleMessageRequest(threadID, accept, callback) {
-      ctx.nodeify(Promise.reject(notImplemented('handleMessageRequest')), callback);
+      return ctx.nodeify(Promise.reject(notImplemented('handleMessageRequest')), callback);
     },
   };
 };

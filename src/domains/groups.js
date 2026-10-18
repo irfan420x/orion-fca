@@ -8,7 +8,7 @@ module.exports = (ctx) => {
   const api = {
     addUserToGroup(userIDs, threadID, callback) {
       ctx.guard('addUserToGroup', [userIDs, threadID]);
-      ctx.nodeify(ctx.task({
+      return ctx.nodeify(ctx.task({
         label: TASK_LABELS.addUsers,
         version: TASK_VERSIONS.addUsers,
         queue: String(threadID),
@@ -18,7 +18,7 @@ module.exports = (ctx) => {
 
     removeUserFromGroup(userID, threadID, callback) {
       ctx.guard('removeUserFromGroup', [userID, threadID]);
-      ctx.nodeify(ctx.task({
+      return ctx.nodeify(ctx.task({
         label: TASK_LABELS.removeUser,
         version: TASK_VERSIONS.removeUser,
         queue: 'remove_participant_v2',
@@ -28,7 +28,7 @@ module.exports = (ctx) => {
 
     changeNickname(nickname, threadID, participantID, callback) {
       ctx.guard('changeNickname', [nickname, threadID, participantID]);
-      ctx.nodeify(ctx.task({
+      return ctx.nodeify(ctx.task({
         label: TASK_LABELS.nickname,
         queue: 'thread_participant_nickname',
         payload: {
@@ -42,7 +42,7 @@ module.exports = (ctx) => {
 
     setTitle(title, threadID, callback) {
       ctx.guard('setTitle', [title, threadID]);
-      ctx.nodeify(ctx.task({
+      return ctx.nodeify(ctx.task({
         label: TASK_LABELS.title,
         queue: String(threadID),
         payload: { thread_key: String(threadID), thread_name: String(title), sync_group: 1 },
@@ -50,7 +50,7 @@ module.exports = (ctx) => {
     },
 
     changeAdminStatus(threadID, ids, status, callback) {
-      ctx.nodeify(Promise.all([].concat(ids).map((id) => ctx.task({
+      return ctx.nodeify(Promise.all([].concat(ids).map((id) => ctx.task({
         label: TASK_LABELS.adminStatus,
         queue: 'admin_status',
         payload: { thread_key: String(threadID), contact_id: String(id), is_admin: status ? 1 : 0 },
@@ -59,7 +59,7 @@ module.exports = (ctx) => {
 
     changeThreadEmoji(emoji, threadID, callback) {
       ctx.guard('changeThreadEmoji', [emoji, threadID]);
-      ctx.nodeify(ctx.task({
+      return ctx.nodeify(ctx.task({
         label: TASK_LABELS.emoji,
         queue: 'thread_quick_reaction',
         payload: {
@@ -73,7 +73,7 @@ module.exports = (ctx) => {
 
     changeThreadColor(color, threadID, callback) {
       ctx.guard('changeThreadColor', [color, threadID]);
-      ctx.nodeify(ctx.task({
+      return ctx.nodeify(ctx.task({
         label: TASK_LABELS.theme,
         queue: 'thread_theme',
         payload: { thread_key: String(threadID), theme_fbid: String(color), source: null, sync_group: 1, payload: null },
@@ -85,7 +85,7 @@ module.exports = (ctx) => {
       if (typeof imageID !== 'string' || !/^\d+$/.test(imageID)) {
         return ctx.nodeify(Promise.reject(notImplemented('changeGroupImage without an uploaded image id')), callback);
       }
-      ctx.nodeify(ctx.task({
+      return ctx.nodeify(ctx.task({
         label: TASK_LABELS.threadImage,
         queue: 'thread_image',
         payload: { thread_key: String(threadID), image_id: imageID, sync_group: 1 },
@@ -93,7 +93,7 @@ module.exports = (ctx) => {
     },
 
     changeAvatar(image, callback) {
-      ctx.nodeify(Promise.reject(notImplemented('changeAvatar')), callback);
+      return ctx.nodeify(Promise.reject(notImplemented('changeAvatar')), callback);
     },
   };
 

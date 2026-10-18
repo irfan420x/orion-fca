@@ -6,11 +6,11 @@ module.exports = (ctx) => {
 
   return {
     httpGet(url, callback) {
-      ctx.nodeify(client.http.get(url), callback);
+      return ctx.nodeify(client.http.get(url), callback);
     },
 
     httpPost(url, form, callback) {
-      ctx.nodeify((async () => {
+      return ctx.nodeify((async () => {
         const body = new URLSearchParams((form && form.form) || form || {});
         const target = /^https?:\/\//.test(url) ? url : `https://www.facebook.com${url}`;
         const r = await fetch(target, {

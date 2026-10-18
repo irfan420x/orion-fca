@@ -329,6 +329,13 @@ class Realtime {
 
   emit(event) { for (const fn of this.handlers) { try { fn(event); } catch { /* isolate */ } } }
   on(fn) { this.handlers.push(fn); return this; }
+
+  /** Detach a handler — re-attaching must not leak listeners into the emitter. */
+  off(fn) {
+    const i = this.handlers.indexOf(fn);
+    if (i !== -1) this.handlers.splice(i, 1);
+    return this;
+  }
   close() {
     if (this.watchdog) { clearInterval(this.watchdog); this.watchdog = null; }
     try { this.client.end(true); } catch { /* noop */ }

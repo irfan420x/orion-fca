@@ -7,10 +7,10 @@ const { notImplemented } = require('../core/errors');
 module.exports = (ctx) => ({
   getUserInfo(ids, callback) {
     ctx.guard('getUserInfo', [ids]);
-    ctx.nodeify(userInfo(ctx.client, ids), callback);
+    return ctx.nodeify(userInfo(ctx.client, ids), callback);
   },
 
   handleFriendRequest(userID, accept, callback) {
-    ctx.nodeify(Promise.reject(notImplemented('handleFriendRequest')), callback);
+    return ctx.nodeify(Promise.reject(notImplemented('handleFriendRequest')), callback);
   },
 });

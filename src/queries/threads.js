@@ -37,6 +37,7 @@ async function threadInfo(client, threadID) {
     const u = (e.node || {}).messaging_actor || {};
     return {
       userID: String(u.id || ''),
+      id: String(u.id || ''),          // fb-chat-api shape (GoatBot reads .id)
       name: u.name || null,
       firstName: u.name || null,
       profileUrl: u.url || null,
@@ -51,7 +52,7 @@ async function threadInfo(client, threadID) {
     threadName: t.name || null,
     userInfo: users,
     participantIDs: users.map((u) => u.userID),
-    adminIDs: (t.thread_admins || []).map((a) => String(a.id)),
+    adminIDs: (t.thread_admins || []).map((a) => ({ id: String(a.id) })),
     isGroup: Boolean(t.thread_key && t.thread_key.thread_fbid),
     messageCount: t.messages_count || null,
     image: t.image || null,

@@ -11,9 +11,14 @@ module.exports = (ctx) => {
     sendMessage(msg, threadID, callback, replyToMessage) {
       const text = typeof msg === 'string' ? msg : (msg && (msg.body || msg.text)) || '';
       const replyTo = replyToMessage || (msg && msg.replyToMessage);
-      const attachment = msg && typeof msg === 'object'
+      const rawAttachment = msg && typeof msg === 'object'
         ? (msg.attachment || msg.image || msg.file || null)
         : null;
+      // GoatBot passes arrays: [{stream}, {stream}]
+      const attachmentList = rawAttachment
+        ? (Array.isArray(rawAttachment) ? rawAttachment.filter(Boolean) : [rawAttachment])
+        : [];
+      const attachment = attachmentList[0] || null;
       const noAck = Boolean(msg && typeof msg === 'object' && msg.noAck);
 
       // A fire-and-forget reply must not sit behind another send in a lane:
@@ -21,25 +26,33 @@ module.exports = (ctx) => {
       if (noAck) {
         return ctx.nodeify((async () => {
           let fbids = null;
-          if (attachment) {
+          if (attachmentList.length) {
             const { uploadFile } = require('../transport/upload');
-            fbids = (await uploadFile(client, attachment)).ids;
+            fbids = [];
+            for (const file of attachmentList) {
+              const { ids } = await uploadFile(client, file);
+              fbids.push(...ids);
+            }
           }
           const rt = await ctx.rt();
           return rt.sendFast(threadID, text, replyTo, fbids);
         })(), callback);
       }
 
-      ctx.nodeify(ctx.write({
+      return ctx.nodeify(ctx.write({
         name: 'sendMessage',
         args: [text || (attachment ? '[media]' : ''), threadID],
         lane: `thread:${threadID}`,
         key: `send:${threadID}:${String(text).slice(0, 64)}:${replyTo || ''}:${attachment && (attachment.path || attachment.filename) || ''}`,
         run: async () => {
           let fbids = null;
-          if (attachment) {
+          if (attachmentList.length) {
             const { uploadFile } = require('../transport/upload');
-            fbids = (await uploadFile(client, attachment)).ids;
+            fbids = [];
+            for (const file of attachmentList) {
+              const { ids } = await uploadFile(client, file);
+              fbids.push(...ids);
+            }
           }
           const rt = await ctx.rt();
           return rt.send(threadID, text, replyTo, fbids);
@@ -48,7 +61,7 @@ module.exports = (ctx) => {
     },
 
     editMessage(text, messageID, callback) {
-      ctx.nodeify(ctx.write({
+      return ctx.nodeify(ctx.write({
         name: 'editMessage',
         args: [text, messageID],
         lane: `thread:${ctx.threadOf(messageID) || 'unknown'}`,
@@ -62,7 +75,7 @@ module.exports = (ctx) => {
     },
 
     unsendMessage(messageID, callback) {
-      ctx.nodeify(ctx.write({
+      return ctx.nodeify(ctx.write({
         name: 'unsendMessage',
         args: [messageID],
         lane: `thread:${ctx.threadOf(messageID) || 'unknown'}`,
@@ -76,7 +89,7 @@ module.exports = (ctx) => {
     },
 
     deleteMessage(threadID, callback) {
-      ctx.nodeify(ctx.write({
+      return ctx.nodeify(ctx.write({
         name: 'deleteMessage',
         args: [threadID],
         lane: `thread:${threadID}`,
@@ -90,7 +103,7 @@ module.exports = (ctx) => {
     },
 
     addReaction(reaction, messageID, callback, forceCustomReaction) {
-      ctx.nodeify(ctx.write({
+      return ctx.nodeify(ctx.write({
         name: 'addReaction',
         args: [reaction, messageID],
         lane: `thread:${ctx.threadOf(messageID) || 'unknown'}`,
@@ -114,7 +127,7 @@ module.exports = (ctx) => {
     },
 
     markAsRead(threadID, callback) {
-      ctx.nodeify(ctx.write({
+      return ctx.nodeify(ctx.write({
         name: 'markAsRead',
         args: [threadID],
         lane: `thread:${threadID}`,
@@ -128,7 +141,7 @@ module.exports = (ctx) => {
     },
 
     markAsDelivered(threadID, callback) {
-      ctx.nodeify(Promise.resolve(true), callback);
+      return ctx.nodeify(Promise.resolve(true), callback);
     },
   };
 
