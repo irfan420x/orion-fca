@@ -227,6 +227,8 @@ class Realtime {
 
   ready(seqId = this.seq || 0) {
     if (this.ready_ && this.client && this.client.connected) return Promise.resolve();
+    // after a failed reconnect the client can be null — build one first
+    if (!this.client) this.connect();
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new FcaError('MQTT_TIMEOUT', 'mqtt connect timeout')), 20000);
       this.onError = (err) => { clearTimeout(timer); reject(err); };
