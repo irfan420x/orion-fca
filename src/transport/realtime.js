@@ -50,6 +50,9 @@ class Realtime {
     this.watchdog = null;
     this.client = null;
     this.handlers = [];
+    this._retry = 0;
+    this._reconnecting = false;
+    this._retryTimer = null;
     this.ready_ = false;
     this.onError = null;
     this.seq = 0;
@@ -113,7 +116,7 @@ class Realtime {
       if (this.onError) this.onError(err);
       this.emit({ type: 'error', error: err.message });
       // mirrors the reference client: drop the socket and listen again
-      setTimeout(() => this.reconnect(), 1000).unref?.();
+      this.reconnect('mqtt error');
     });
     this.client.on('message', (topic, raw) => {
       if (this._handshake) { clearTimeout(this._handshake); this._handshake = null; }
@@ -134,7 +137,7 @@ class Realtime {
     this.client.on('close', () => {
       if (this._closing) return;
       this.lastDeltaAt = Date.now();
-      this.reconnect();
+      this.reconnect('socket closed');
     });
     return this;
   }
@@ -180,15 +183,34 @@ class Realtime {
     if (this.watchdog.unref) this.watchdog.unref();
   }
 
-  reconnect(attempt = 0) {
+  /** One reconnect at a time, always with backoff — a tight loop here created
+   *  thousands of TLS sockets and blew the heap. */
+  reconnect(reason = '') {
+    if (this._reconnecting) return;
+    this._reconnecting = true;
+    if (this._retryTimer) { clearTimeout(this._retryTimer); this._retryTimer = null; }
+
     try { if (this.client) this.client.end(true); } catch { /* already gone */ }
     this.client = null;
     this.ready_ = false;
-    this.connect();
-    this.ready(this.seq || 0).catch(() => {
-      const wait = Math.min(15000, 2000 * (attempt + 1));
-      setTimeout(() => this.reconnect(attempt + 1), wait).unref?.();
-    });
+
+    const wait = Math.min(30000, 1000 * 2 ** Math.min(this._retry, 5));
+    this._retry += 1;
+
+    this._retryTimer = setTimeout(() => {
+      this._retryTimer = null;
+      try {
+        this.connect();
+        this.ready(this.seq || 0)
+          .then(() => { this._retry = 0; })
+          .catch(() => { this._reconnecting = false; this.reconnect(reason); return; })
+          .finally(() => { this._reconnecting = false; });
+      } catch (e) {
+        this._reconnecting = false;
+        this.reconnect(`connect threw: ${e.message}`);
+      }
+    }, wait);
+    if (this._retryTimer.unref) this._retryTimer.unref();
   }
 
   /** Wait for a live connection instead of failing a reply outright. */
